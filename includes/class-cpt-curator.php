@@ -55,6 +55,11 @@ class CUR_CPT_Curator extends CUR_Singleton {
 		add_filter( 'get_edit_post_link', array( $this, 'filter_edit_post_link' ), 10, 3 );
 
 		add_action( 'admin_head', array( $this, 'admin_head' ) );
+		
+		add_filter( 'page_row_actions', array( $this, 'filter_edit_trash_link' ), 10, 2 );
+		
+		add_filter( 'bulk_post_updated_messages', array( $this, 'filter_edit_trash_msgs' ), 10, 2 );
+				
 	}
 
 	/**
@@ -497,6 +502,67 @@ class CUR_CPT_Curator extends CUR_Singleton {
 		}
 
 		return $edit_link;
+	}
+
+	/**
+	 * Modify the curator post trash link to read uncurate and removed the edit inline link.
+	 *
+	 * @param $actions
+	 * @param $post
+	 *
+	 * @return mixed
+	 * @since 0.1.0
+	 */	
+	public function filter_edit_trash_link( $actions, $post ) {
+		
+		if( 'cur-curator' !== $post->post_type ){
+			return;
+		}
+		
+		if ( ! current_user_can( 'delete_post', $post->ID ) ) {
+			return;
+		}
+		
+		if( ! isset( $actions['trash'] ) ) {
+			return;
+		}
+			
+		if ( EMPTY_TRASH_DAYS ) {
+			$actions['trash'] = "<a class='submitdelete' title='" . esc_attr__( 'Uncurate this item', 'cur' ) . "' href='" . get_delete_post_link( $post->ID ) . "'>" . __( 'Uncurate', 'cur' ) . "</a>";
+		}
+		
+		if( isset( $actions['inline hide-if-no-js'] ) ) {
+			unset( $actions['inline hide-if-no-js'] );
+		}
+			
+		return $actions;
+		
+	}
+	
+	/**
+	 * Modify the curator post trash notification messages.
+	 *
+	 * @param $bulk_messages
+	 * @param $bulk_counts
+	 *
+	 * @return array
+	 */
+	public function filter_edit_trash_msgs( $bulk_messages, $bulk_counts ) {
+
+		global $typenow;
+
+		if ( 'cur-curator' !== $typenow ) {
+			return;
+		}
+
+		if ( empty( $bulk_messages['page']['trashed'] ) ) {
+			return;
+		}
+
+		$bulk_messages['post']['trashed'] = _n( '%s item uncurated.', '%s items uncurated.', $bulk_counts['trashed'], 'cur' );
+
+		return $bulk_messages;
+
 	}
 
 	/**
